@@ -1,35 +1,58 @@
-import streamlit as str
+import streamlit as st
+from datetime import date
 
-# 1. 앱 제목 설정
-str.title("💖 나의 연애 성공 확률 계산기")
-str.subheader("재미로 보는 나의 연애 점수는 몇 점일까?")
+# 페이지 설정
+st.set_page_config(page_title="우리만의 연애 앱", page_icon="💖")
 
-str.write("---")
+st.title("💖 올인원 연애 앱")
+st.write("확률 계산부터 디데이, 게임까지 한 번에 즐겨보세요!")
 
-# 2. 사용자 입력 받기
-name = str.text_input("당신의 이름을 입력해주세요:", placeholder="예: 홍길동")
-crush_name = str.text_input("상대방의 이름을 입력해주세요:", placeholder="예: 성춘향")
+# 탭 생성 (메뉴 나누기)
+tab1, tab2, tab3 = st.tabs(["❤️ 확률 계산기", "📅 디데이 계산기", "🎮 밸런스 게임"])
 
-# 3. 선택지 (라디오 버튼)
-vibe = str.radio(
-    "요즘 두 사람의 분위기는 어떤가요?",
-    ("매일 연락하고 밤새 통화한다 📞", "가끔 연락하지만 만나면 즐겁다 ☕", "아직은 눈인사만 하는 사이 😳")
-)
-
-str.write("---")
-
-# 4. 결과 출력 버튼
-if str.button("❤️ 확률 확인하기"):
-    if name and crush_name:
-        str.success(f"**{name}** 님과 **{crush_name}** 님의 분석이 완료되었습니다!")
-        
-        # 선택지에 따른 결과 분기
-        if "매일 연락" in vibe:
-            str.balloons() # 화면에 풍선 애니메이션 효과
-            str.metric(label="고백 성공 확률", value="99%", delta="그냥 오늘 고백하세요!")
-        elif "가끔 연락" in vibe:
-            str.metric(label="고백 성공 확률", value="65%", delta="조금만 더 용기를 내보세요.")
+# --- 탭 1: 연애 성공 확률 계산기 ---
+with tab1:
+    st.header("고백 성공 확률 분석")
+    name = st.text_input("당신의 이름:", placeholder="이름 입력")
+    crush = st.text_input("상대방 이름:", placeholder="이름 입력")
+    vibe = st.select_slider(
+        "두 분의 현재 분위기는?",
+        options=["어색함", "눈인사", "카톡중", "썸타는중", "거의커플"],
+        value="카톡중"
+    )
+    
+    if st.button("결과 확인 💘"):
+        if name and crush:
+            probs = {"어색함": "5%", "눈인사": "20%", "카톡중": "50%", "썸타는중": "85%", "거의커플": "99%"}
+            st.success(f"**{name}**님과 **{crush}**님의 성공 확률은 **{probs[vibe]}**입니다!")
+            if vibe in ["썸타는중", "거의커플"]:
+                st.balloons()
         else:
-            str.metric(label="고백 성공 확률", value="20%", delta="우선 친해지는 것부터 시작!")
+            st.warning("이름을 입력해주세요!")
+
+# --- 탭 2: 연애 디데이 계산기 ---
+with tab2:
+    st.header("우리의 소중한 시간")
+    start_date = st.date_input("처음 만난(사귄) 날짜를 선택하세요:", value=date.today())
+    today = date.today()
+    
+    passed_days = (today - start_date).days + 1
+    
+    if passed_days > 0:
+        st.metric(label="함께한 시간", value=f"{passed_days}일째")
+        st.write(f"💕 앞으로도 예쁜 사랑 하세요!")
     else:
-        str.warning("⚠️ 두 사람의 이름을 모두 입력해야 정확한 분석이 가능합니다.")
+        st.write("미래의 날짜를 선택하셨네요! 설레는 시작을 기다려봐요.")
+
+# --- 탭 3: 커플 밸런스 게임 ---
+with tab3:
+    st.header("커플 밸런스 게임 🎮")
+    st.subheader("Q. 더 용서할 수 없는 상황은?")
+    choice = st.radio(
+        "정답은 없습니다. 서로의 생각을 공유해보세요!",
+        ["말없이 잠수타기 (잠수 이별)", "다른 사람과 환승하기 (환승 이별)"]
+    )
+    
+    if st.button("결정 완료! ✅"):
+        st.info(f"선택하신 답변: **{choice}**")
+        st.write("상대방의 생각은 어떤지 물어보고 대화를 나눠보세요!")
