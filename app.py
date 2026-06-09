@@ -1,209 +1,190 @@
 import streamlit as st
 import random
+import http.client
+import json
 
-# 페이지 기본 설정
+# 1. 페이지 기본 설정 및 커스텀 테마 디자인
 st.set_page_config(
-    page_title="GlowUp - 맞춤형 외모 관리 가이드",
+    page_title="GlowAI - 약속 맞춤형 AI 외모 관리",
     page_icon="✨",
-    layout="centered",
-    initial_sidebar_state="expanded"
+    layout="centered"
 )
 
-# 커스텀 CSS로 감성적이고 깔끔한 UI 디자인 적용
+# 부드럽고 세련된 뷰티/케어 감성의 스타일 입히기
 st.markdown("""
     <style>
-    .main {
-        background-color: #FAFAFA;
-    }
+    .main { background-color: #FCF9F9; }
+    h1 { color: #FF7A7A; font-family: 'Malgun Gothic', sans-serif; }
     .stButton>button {
-        background-color: #FF8A8A;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 0.5rem 1rem;
-        font-weight: bold;
+        background-color: #FF8E8E; color: white;
+        border-radius: 20px; border: none;
+        padding: 0.6rem 2rem; font-weight: bold; width: 100%;
     }
-    .stButton>button:hover {
-        background-color: #FF6B6B;
-        color: white;
-    }
-    .reportview-container .main .block-container{
-        padding-top: 2rem;
-    }
-    .routine-box {
-        background-color: #FFFFFF;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
-        border-left: 5px solid #FF8A8A;
-    }
-    .tip-title {
-        color: #FF6B6B;
-        font-weight: bold;
-        font-size: 1.1rem;
+    .stButton>button:hover { background-color: #FF7A7A; color: white; }
+    .result-box {
+        background-color: #FFFFFF; padding: 25px;
+        border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border-left: 5px solid #FF8E8E; margin-top: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 데이터 정의 (안정성을 위해 내부 데이터셋 활용 및 에러 방지)
-SKIN_CARE_DATA = {
-    "지성 (기름기가 많고 모공이 넓음)": {
-        "morning": ["약산성 폼클렌저로 과도한 유분 세안", "가벼운 워터 타입 토너로 수분 공급", "유분기 없는 오일프리 수분크림 수딩젤", "가볍고 산뜻한 플루이드 유기자차 자외선 차단제"],
-        "night": ["클렌징 워터로 메이크업 및 노폐물 1차 세정", "약산성 클렌징 폼으로 2차 세안", "모공 케어 및 진정 성분(티트리, 바하) 앰플", "유수분 밸런스를 맞추는 젤 크림"],
-        "tip": "기름이 많이 돈다고 수분 공급을 건너뛰면 피지가 더 많이 분비됩니다. 수분 위주의 레이어링을 해주세요."
-    },
-    "건성 (푸석하고 당김이 심함)": {
-        "morning": ["물세안 또는 아주 부드러운 밀크 클렌저 사용", "콧물 제형의 고보습 스킨/토너 2회 레이어링", "세라마이드 성분이 함유된 보습 에센스", "촉촉한 크림 타입의 무기/혼합자차 자외선 차단제"],
-        "night": ["클렌징 오일 또는 밤으로 부드럽게 메이크업 녹이기", "약산성 보습 클렌징 폼으로 세안", "피부 장벽을 강화하는 페이셜 오일 한 두 방울 또는 리치한 영양 크림", "주 1~2회 슬리핑 팩 활용"],
-        "tip": "세안 후 물기가 마르기 전 3초 이내에 토너를 발라 수분 증발을 막아주는 것이 핵심입니다."
-    },
-    "복합성 (T존은 번들거리고 U존은 건조함)": {
-        "morning": ["T존 위주로 가볍게 클렌징 폼 세안", "토너 패드로 T존은 닦아내고 U존은 흡수시키기", "부위별로 양을 조절하여 가벼운 로션 도포", "산뜻한 로션 제형의 자외선 차단제"],
-        "night": ["립앤아이 리무버 후 클렌징 워터/젤로 세안", "수분 앰플을 얼굴 전체에 도포", "T존에는 젤 크림을 얇게, U존에는 보습 크림을 도톰하게 나누어 바르기"],
-        "tip": "얼굴 부위별로 피부 상태가 다르므로 화장품을 바르는 양과 제형을 다르게 가져가는 지혜가 필요합니다."
-    }
-}
-
-MAKEUP_DATA = {
-    "데일리/출근 퀵 메이크업 (5분 완성)": [
-        "1단계: 기초 케어 후 톤업 선크림을 얼굴 전체에 골고루 펴 발라 안색을 밝힙니다.",
-        "2단계: 잡티나 다크서클 부위에만 컨실러를 살짝 찍어 바른 뒤 스펀지로 두드려 커버합니다.",
-        "3단계: 스크류 브러쉬로 눈썹 결을 정리한 뒤, 빈 곳만 아이브로우 펜슬로 자연스럽게 채웁니다.",
-        "4단계: 혈색을 주는 립밤이나 촉촉한 틴트를 입술 중앙부터 물들이듯 발라 마무리합니다."
-    ],
-    "면접/미팅 신뢰감을 주는 메이크업": [
-        "1단계: 지속력을 위해 매트하거나 세미매트한 쿠션/파운데이션을 얇게 레이어링하여 밀착시킵니다.",
-        "2단계: 차분한 브라운 계열의 음영 섀도우를 눈두덩이에 넓게 발라 깊이감 있는 눈매를 만듭니다.",
-        "3단계: 깔끔한 인상을 위해 눈썹 산을 살짝 살려 깔끔하고 대칭이 맞게 눈썹을 그립니다.",
-        "4단계: 아이라인은 과하게 빼지 않고 속눈썹 사이만 채우며, 립은 튀지 않는 말린장미(MLBB)나 차분한 코랄 컬러를 선택합니다."
-    ],
-    "특별한 날 화사한 꾸안꾸 메이크업": [
-        "1단계: 은은한 광채를 주는 글로우 베이스나 쿠션을 사용하여 피부 바탕을 맑고 투명하게 표현합니다.",
-        "2단계: 맑은 핑크나 피치 톤의 블러셔를 볼 중앙에 둥글게 굴려 생기와 귀여운 느낌을 더합니다.",
-        "3단계: 펄이 미세하게 들어간 글리터 섀도우를 눈동자 위와 애교살에 살짝 얹어 눈가에 포인트를 줍니다.",
-        "4단계: 앵두 같은 입술을 연출해 주는 탕후루 광택의 글래스 립 틴트를 발라 화사함을 극대화합니다."
-    ]
-}
-
+# 2. 동기부여 문구 데이터
 MOTIVATION_QUOTES = [
-    "오늘의 작은 관리가 1년 뒤 눈부신 차이를 만듭니다. ✨",
-    "나를 아끼고 가꾸는 시간은 결코 낭비가 아닙니다. 🤍",
-    "가장 아름다운 모습은 나다운 모습을 당당하게 드러낼 때 찾아옵니다. 🌿",
-    "피부와 외모는 내가 보낸 시간과 정성을 속이지 않습니다. 💪",
-    "오늘 밤 스킨케어 5분이 내일 아침 거울 앞의 미소를 만듭니다. 🥰"
+    "오늘의 정성스러운 관리는 내일의 눈부신 자신감이 됩니다. ✨",
+    "나를 가꾸고 아끼는 시간은 삶을 사랑하는 가장 아름다운 방법입니다. 🤍",
+    "가장 완벽한 메이크업은 당당하게 미소 짓는 당신의 얼굴입니다. 🥰",
+    "피부는 거짓말을 하지 않습니다. 오늘 밤 5분의 케어가 내일의 차이를 만듭니다. 🌿"
 ]
 
-# --- 사이드바 구성 ---
-st.sidebar.title("✨ GlowUp 케어 룸")
-st.sidebar.write("나를 가꾸는 가장 쉬운 자기관리 루틴")
+# 3. Gemini API 호출 함수 (라이브러리 충돌 최소화를 위해 내장 http.client 사용)
+def ask_gemini_ai(api_key, appointment, skin_type, face_shape):
+    """
+    gemini-2.5-flash-lite 모델을 사용하여 맞춤형 메이크업 및 스킨케어 팁을 안전하게 받아옵니다.
+    """
+    host = "generativelanguage.googleapis.com"
+    # 에러 방지를 위해 명확하고 구조화된 출력을 요구하는 프롬프트 작성
+    prompt = f"""
+    당신은 전문 퍼스널 쇼퍼이자 뷰티 컨설턴트입니다. 아래 조건에 맞는 맞춤형 외모 관리 가이드를 작성해주세요.
+    
+    [사용자 조건]
+    1. 예정된 약속: {appointment}
+    2. 피부 타입: {skin_type}
+    3. 얼굴형 및 특징: {face_shape}
+    
+    [작성 규칙]
+    - 반드시 한국어로 친절하고 따뜻한 어조로 작성하세요.
+    - 아래 3가지 섹션을 명확히 구분하여 이모지와 함께 쉽게 설명해주세요.
+      1. 🧴 [내 피부에 맞는 사전/사후 케어 방법] (약속 전날이나 화장 전 무너지지 않는 수분/진정 케어법)
+      2. 💄 [약속과 얼굴형에 어울리는 추천 메이크업 가이드] (색조 분위기, 얼굴형 보완 기법 포함)
+      3. 💡 [오늘의 핵심 원포인트 외모 꿀팁]
+    """
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    
+    url = f"/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        conn = http.client.HTTPSConnection(host, timeout=10)
+        conn.request("POST", url, body=json.dumps(payload), headers=headers)
+        response = conn.getresponse()
+        
+        if response.status != 200:
+            return f"❌ AI 서버 응답 에러 (상태 코드: {response.status}). API 키가 올바른지 확인해주세요."
+            
+        res_data = json.loads(response.read().decode("utf-8"))
+        
+        # 구조적 안전성을 확보하며 데이터 추출 (KeyError 예외 처리)
+        text_output = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        return text_output
+        
+    except Exception as e:
+        return f"❌ 통신 중 오류가 발생했습니다: {str(e)}\n인터넷 연결을 확인하거나 잠시 후 다시 시도해주세요."
 
-menu = st.sidebar.radio(
-    "원하는 관리 메뉴를 선택하세요:",
-    ["🏠 홈 (오늘의 다짐)", "🧴 맞춤형 피부 케어", "💄 맞춤형 메이크업", "📅 나의 가꾸기 체크리스트"]
-)
+# --- 메인 화면 레이아웃 ---
+st.title("✨ GlowAI : 약속 맞춤형 자기관리")
+st.markdown("##### 나의 약속과 얼굴 특징에 딱 맞는 메이크업 & 케어 비법을 AI 뷰티 매니저가 설계해 드립니다.")
+
+# 사이드바 구성
+st.sidebar.title("🌿 My Care Room")
+if "quote" not in st.session_state:
+    st.session_state.quote = random.choice(MOTIVATION_QUOTES)
+
+st.sidebar.info(f"💡 **오늘의 다짐**\n\n{st.session_state.quote}")
+if st.sidebar.button("다른 문구 보기"):
+    st.session_state.quote = random.choice(MOTIVATION_QUOTES)
+    st.columns(1) # 간접 리프레시 효과
 
 st.sidebar.markdown("---")
-st.sidebar.caption("GlowUp v1.0.0 | 안전하고 직관적인 뷰티 매니저")
+st.sidebar.caption("GlowAI v1.1.0 | Powered by gemini-2.5-flash-lite")
 
+# 탭 레이아웃 구성하여 화면을 깔끔하게 분리
+tab1, tab2 = st.tabs(["🔮 AI 맞춤 뷰티 컨설팅", "📅 데일리 가꾸기 체크리스트"])
 
-# --- 각 메뉴별 화면 구현 ---
-
-# 1. 홈 화면
-if menu == "🏠 홈 (오늘의 다짐)":
-    st.title("✨ GlowUp 자기관리")
-    st.subheader("매일 조금씩 예뻐지는 나를 위한 공간")
+# --- Tab 1: AI 컨설팅 기능 ---
+with tab1:
+    st.markdown("### 📝 나의 상황 입력하기")
     
-    st.image("https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=800", 
-             caption="나를 돌보는 온전한 시간에 집중해 보세요.")
+    col1, col2 = st.columns(2)
+    with col1:
+        appointment = st.selectbox(
+            "1. 어떤 종류의 약속인가요?",
+            ["중요한 면접 및 비즈니스 미팅", "설레는 소개팅 및 데이트", "트렌디하고 힙한 파티/클럽 모임", "편안한 친구들과의 캐주얼 모임", "결혼식 하객 참석", "증명/프로필 사진 촬영"]
+        )
+        skin_type = st.selectbox(
+            "2. 현재 내 피부 타입은?",
+            ["지성 (유분이 많고 화장이 잘 지워짐)", "건성 (푸석하고 각질이 잘 뜨며 당김)", "복합성 (T존은 번들, U존은 건조)", "민감성 (쉽게 붉어지고 트러블 발생)"]
+        )
+    with col2:
+        face_shape = st.selectbox(
+            "3. 나의 얼굴형과 고민은?",
+            ["둥근형 (부어 보이고 턱선 레이어링 필요)", "각진형/각진턱 (부드러운 인상 연출 필요)", "계란형 (장점을 살리는 입체감 필요)", "긴 얼굴형 (중안부를 짧아 보이게 연출 필요)"]
+        )
+        st.write("")
+        st.write("")
+        # 배포 환경이나 로컬 환경에서 API 키가 누락되었을 때를 대비한 안전 코드 구축
+        api_key_status = True
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        else:
+            api_key = ""
+            api_key_status = False
+
+    st.markdown("---")
+    
+    # API 키 부재 시 유저가 직접 입력할 수 있는 비상 창 제공 (배포 초기 테스트 편의성용 에러 가드)
+    if not api_key_status:
+        st.warning("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
+        user_key = st.text_input("테스트를 위해 본인의 Gemini API Key를 입력해주시면 바로 실행 가능합니다:", type="password")
+        if user_key:
+            api_key = user_key
+            api_key_status = True
+
+    # 가이드 생성 버튼 구동
+    if st.button("✨ 나만을 위한 AI 맞춤 가이드 가져오기"):
+        if not api_key_status or not api_key.strip():
+            st.error("🔒 API Key가 필요합니다. Secrets 설정을 완료하거나 위의 입력창에 키를 넣어주세요.")
+        else:
+            with st.spinner("AI 뷰티 매니저가 최적의 관리법을 분석하고 있습니다... 3초만 기다려주세요!"):
+                result = ask_gemini_ai(api_key, appointment, skin_type, face_shape)
+                
+                # 결과 박스 렌더링
+                st.markdown("### 💝 AI가 설계한 맞춤 관리 리포트")
+                st.markdown(f"<div class='result-box'>{result.replace('\n', '<br>')}</div>", unsafe_allow_html=True)
+
+# --- Tab 2: 루틴 체크리스트 기능 (스스로 제안하여 차별화한 기능) ---
+with tab2:
+    st.markdown("### 📅 오늘 하루 외모 가꾸기 약속")
+    st.write("기초가 튼튼해야 메이크업도 빛납니다. 오늘 실천한 루틴들을 체크해 보세요!")
+    
+    routines = [
+        "💧 하루 물 1.5L 이상 섭취하기",
+        "☀️ 외출 전 자외선 차단제(선크림) 꼼꼼히 바르기",
+        "🚫 습관적으로 얼굴 손으로 만지지 않기",
+        "🧼 저녁 퇴근 후 귀찮아도 꼼꼼하게 이중 세안하기",
+        "🧴 수분 크림 충분히 발라 피부 장벽 지키기"
+    ]
+    
+    score = 0
+    for i, routine in enumerate(routines):
+        if st.checkbox(routine, key=f"routine_{i}"):
+            score += 1
+            
+    # 성취도 시각화 계산
+    total = len(routines)
+    progress = score / total
     
     st.write("")
-    st.markdown("#### 💌 오늘의 뷰티 동기부여 메시지")
-    
-    # 세션 상태를 활용해 새로고침 전까지 문구 유지 및 랜덤 버튼 구현
-    if 'quote' not in st.session_state:
-        st.session_state.quote = random.choice(MOTIVATION_QUOTES)
-        
-    st.info(st.session_state.quote)
-    
-    if st.button("다른 응원 문구 보기"):
-        st.session_state.quote = random.choice(MOTIVATION_QUOTES)
-        st.rerun()
-
-# 2. 피부 케어 화면
-elif menu == "🧴 맞춤형 피부 케어":
-    st.title("🧴 맞춤형 피부 케어 가이드")
-    st.write("자신의 피부 타입을 선택하면 아침/저녁에 꼭 해야 할 핵심 케어 방법을 알려드립니다.")
-    
-    skin_type = st.selectbox(
-        "당신의 피부 타입은 무엇인가요?",
-        list(SKIN_CARE_DATA.keys())
-    )
-    
-    try:
-        data = SKIN_CARE_DATA[skin_type]
-        
-        st.markdown(f"### ☀️ 아침 루틴 ({skin_type.split()[0]})")
-        for i, step in enumerate(data["morning"], 1):
-            st.markdown(f"<div class='routine-box'><b>Step {i}.</b> {step}</div>", unsafe_allow_html=True)
-            
-        st.markdown(f"### 🌙 저녁 루틴 ({skin_type.split()[0]})")
-        for i, step in enumerate(data["night"], 1):
-            st.markdown(f"<div class='routine-box'><b>Step {i}.</b> {step}</div>", unsafe_allow_html=True)
-            
-        st.markdown("### 💡 전문가의 한 줄 꿀팁")
-        st.warning(data["tip"])
-        
-    except Exception as e:
-        st.error("데이터를 불러오는 중 문제가 발생했습니다. 관리자에게 문의하세요.")
-
-# 3. 메이크업 화면
-elif menu == "💄 맞춤형 메이크업":
-    st.title("💄 맞춤형 메이크업 가이드")
-    st.write("상황과 목적에 꼭 맞는 메이크업 연출법을 단계별로 쉽게 따라 해 보세요.")
-    
-    makeup_style = st.selectbox(
-        "오늘 어떤 스타일의 메이크업이 필요하신가요?",
-        list(MAKEUP_DATA.keys())
-    )
-    
-    try:
-        steps = MAKEUP_DATA[makeup_style]
-        st.markdown(f"### 📌 {makeup_style} 프로세스")
-        
-        for step in steps:
-            st.write(step)
-            
-        st.write("")
-        st.success("💡 Tip: 메이크업 전 기초를 탄탄히 다져야 화장이 들뜨지 않고 오래 유지됩니다!")
-        
-    except Exception as e:
-        st.error("메이크업 가이드를 불러오는 중 오류가 발생했습니다.")
-
-# 4. 체크리스트 화면 (사용자 반응형 기능)
-elif menu == "📅 나의 가꾸기 체크리스트":
-    st.title("📅 나의 가꾸기 체크리스트")
-    st.write("오늘 실천한 외모 관리 행동들을 체크하며 성취감을 느껴보세요!")
-    
-    tasks = ["물 1.5L 이상 마시기", "외출 전 자외선 차단제 바르기", "얼굴 손으로 만지지 않기", "저녁에 꼼꼼히 세안하기", "가벼운 스트레칭 또는 림프 마사지"]
-    
-    completed_count = 0
-    st.markdown("### 📝 오늘의 체크 목록")
-    for task in tasks:
-        if st.checkbox(task, key=f"check_{task}"):
-            completed_count += 1
-            
-    # 성취도 계산 및 시각화
-    total_tasks = len(tasks)
-    progress = completed_count / total_tasks
-    
-    st.markdown("### 📊 오늘의 가꾸기 성취도")
+    st.markdown(f"**현재 나의 실천도 : {score} / {total}**")
     st.progress(progress)
     
-    if completed_count == total_tasks:
+    if score == total:
         st.balloons()
         st.success("🎉 대단해요! 오늘 정한 자신과의 외모 관리 약속을 완벽하게 지키셨습니다!")
-    elif completed_count > 0:
-        st.info(f"총 {total_tasks}개 중 {completed_count}개 완료! 잘하고 계십니다. 조금만 더 힘내세요! 🔥")
-    else:
-        st.write("아직 체크된 항목이 없습니다. 하나씩 실천해 볼까요?")
+    elif score > 0:
+        st.info("정말 잘하고 계시네요! 조금만 더 채워볼까요? 🔥")
